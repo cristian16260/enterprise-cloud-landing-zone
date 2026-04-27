@@ -1,0 +1,50 @@
+# ===================================================
+# Terraform — Enterprise Cloud Landing Zone
+# ===================================================
+
+# Local state files (NEVER commit — contains sensitive infra data)
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/.terraform.lock.hcl
+
+# Variable override files (may contain secrets/account IDs)
+*.tfvars
+*.tfvars.local
+*.auto.tfvars
+secrets.auto.tfvars
+**/override.tf
+**/override.tf.json
+**/*_override.tf
+**/*_override.tf.json
+
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Terraform plan output files
+*.tfplan
+
+# Terraform CLI config
+.terraformrc
+terraform.rc
+
+# ===================================================
+# OS & Editor
+# ===================================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===================================================
+# Environment & Secrets — NEVER commit
+# ===================================================
+.env
+.env.*
+*.pem
+*.key
