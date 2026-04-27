@@ -1,18 +1,16 @@
 ###############################################################################
 # OUTPUTS — 00-bootstrap
-#
-# Estos valores son consumidos por todos los módulos siguientes para configurar
-# sus backends remotos (01-network, 02-compute, 03-observability, etc.)
-# y para construir políticas IAM de roles de CI/CD.
+# Consumidos por los backends de los módulos 01-network, 02-compute, etc.
+# y por políticas IAM de roles de CI/CD.
 ###############################################################################
 
 output "state_bucket_name" {
-  description = "Nombre del bucket S3 para almacenamiento de estado remoto de Terraform."
+  description = "Nombre del bucket S3 de estado remoto."
   value       = aws_s3_bucket.tfstate.bucket
 }
 
 output "state_bucket_arn" {
-  description = "ARN del bucket S3 de estado — usado en políticas IAM para roles de CI/CD."
+  description = "ARN del bucket — referenciado en políticas IAM de pipelines CI/CD."
   value       = aws_s3_bucket.tfstate.arn
 }
 
@@ -22,6 +20,6 @@ output "lock_table_name" {
 }
 
 output "lock_table_arn" {
-  description = "ARN de la tabla DynamoDB de bloqueo — usado en políticas IAM para roles de CI/CD."
+  description = "ARN de la tabla de bloqueo — referenciado en políticas IAM de pipelines CI/CD."
   value       = aws_dynamodb_table.tf_lock.arn
 }

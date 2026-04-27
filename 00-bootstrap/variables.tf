@@ -3,35 +3,35 @@
 ###############################################################################
 
 variable "aws_region" {
-  description = "Región de AWS donde se crearán los recursos de bootstrap."
+  description = "Región de AWS para los recursos de bootstrap."
   type        = string
   default     = "us-east-1"
 
   validation {
     condition     = can(regex("^[a-z]{2}-[a-z]+-[0-9]$", var.aws_region))
-    error_message = "La región debe tener formato válido de AWS (ej: us-east-1, eu-west-2)."
+    error_message = "Formato de región inválido. Ejemplo: us-east-1, eu-west-2."
   }
 }
 
 variable "state_bucket_name" {
-  description = "Nombre único global del bucket S3 que almacenará el estado remoto de Terraform."
+  description = "Nombre del bucket S3 para estado remoto. Debe ser único globalmente en AWS."
   type        = string
   default     = "enterprise-stack-2026-tfstate"
 
   validation {
     condition     = length(var.state_bucket_name) >= 3 && length(var.state_bucket_name) <= 63
-    error_message = "El nombre del bucket debe tener entre 3 y 63 caracteres."
+    error_message = "El nombre del bucket debe tener entre 3 y 63 caracteres (restricción de S3)."
   }
 }
 
 variable "lock_table_name" {
-  description = "Nombre de la tabla DynamoDB usada para el bloqueo de estado de Terraform."
+  description = "Nombre de la tabla DynamoDB para bloqueo de estado."
   type        = string
   default     = "enterprise-stack-2026-tf-lock"
 }
 
 variable "global_tags" {
-  description = "Tags globales aplicados a todos los recursos vía el bloque default_tags del provider."
+  description = "Tags globales inyectados vía default_tags del provider."
   type        = map(string)
   default = {
     Project   = "Enterprise-Stack-2026"

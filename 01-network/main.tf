@@ -1,16 +1,12 @@
 ###############################################################################
-# MÓDULO: 01-network
-# Propósito: Capa de Red Central — VPC Multi-AZ, Subredes Públicas/Privadas,
-#            Internet Gateway y NAT Gateway.
+# MÓDULO: 01-network | Capa de Red Multi-AZ
 #
-# ¿Por qué NAT Gateway? Los módulos futuros (agentes de Grafana, tareas ECS,
-# funciones Lambda) en subredes PRIVADAS necesitan salida a internet para
-# telemetría, actualizaciones y llamadas a APIs externas, sin exponerse
-# públicamente.
+# Topología: 1 VPC → 2 subredes públicas + 2 privadas (us-east-1a, us-east-1b)
+# Salida a internet: IGW para subredes públicas, NAT GW para privadas.
 #
-# Práctica recomendada: Se usa `for_each` en lugar de `count` para subredes,
-# lo que evita la re-indexación y destrucción accidental de recursos cuando
-# se modifica la lista de CIDRs.
+# El NAT Gateway se despliega en una sola AZ para optimizar costos en
+# entornos de desarrollo. En producción, desplegar uno por AZ y crear
+# una tabla de rutas privada independiente por AZ para garantizar HA.
 ###############################################################################
 
 terraform {
@@ -23,7 +19,7 @@ terraform {
     }
   }
 
-  # Backend remoto provisionado por 00-bootstrap
+  # Backend remoto — provisionado por 00-bootstrap
   backend "s3" {
     bucket         = "enterprise-stack-2026-tfstate"
     key            = "network/terraform.tfstate"
@@ -36,7 +32,6 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
-  # Tags globales inyectados automáticamente en todos los recursos
   default_tags {
     tags = var.global_tags
   }
@@ -44,7 +39,6 @@ provider "aws" {
 
 ###############################################################################
 # DATA SOURCE — Zonas de Disponibilidad
-# Se resuelven dinámicamente para evitar hardcodear nombres de AZs.
 ###############################################################################
 
 data "aws_availability_zones" "available" {
@@ -52,16 +46,12 @@ data "aws_availability_zones" "available" {
 }
 
 ###############################################################################
-# LOCALES — Mapas de subredes para uso con `for_each`
-#
-# Usar for_each con un mapa (en lugar de count con lista) es la práctica
-# recomendada de Terraform porque:
-#   - El estado usa claves estables ("public-az1") en vez de índices frágiles (0, 1)
-#   - Agregar o quitar una subred NO afecta a las demás en el plan de ejecución
+# LOCALES — Mapas de subredes con claves estables para for_each
+# Las claves ("public-az1") se usan como identificadores en el state file.
+# Agregar o quitar una subred no reindexará las existentes.
 ###############################################################################
 
 locals {
-  # Mapa de subredes públicas: clave estable → configuración de subred
   public_subnets = {
     "public-az1" = {
       cidr = var.public_subnet_cidrs[0]
@@ -73,7 +63,6 @@ locals {
     }
   }
 
-  # Mapa de subredes privadas: clave estable → configuración de subred
   private_subnets = {
     "private-az1" = {
       cidr = var.private_subnet_cidrs[0]
@@ -87,17 +76,14 @@ locals {
 }
 
 ###############################################################################
-# VPC PRINCIPAL
+# VPC
 ###############################################################################
 
 resource "aws_vpc" "main" {
   cidr_block = var.vpc_cidr
 
-  # Requerido para zonas hospedadas privadas de Route 53 y descubrimiento de
-  # servicios ECS (Cloud Map)
-  enable_dns_support = true
-
-  # Requerido para SSM Session Manager y resolución de nombres de instancias EC2
+  # Requerido por Route 53 private zones, ECS Service Connect y SSM Session Manager
+  enable_dns_support   = true
   enable_dns_hostnames = true
 
   tags = {
@@ -107,18 +93,14 @@ resource "aws_vpc" "main" {
 
 ###############################################################################
 # SUBREDES PÚBLICAS
-# Uso: Load Balancers de aplicación, NAT Gateway, hosts bastión (si aplica)
 ###############################################################################
 
 resource "aws_subnet" "public" {
-  # for_each con mapa garantiza claves estables en el estado de Terraform
   for_each = local.public_subnets
 
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = each.value.cidr
-  availability_zone = each.value.az
-
-  # Los ALBs y bastiones necesitan IPs públicas automáticas al lanzarse
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = each.value.cidr
+  availability_zone       = each.value.az
   map_public_ip_on_launch = true
 
   tags = {
@@ -130,7 +112,6 @@ resource "aws_subnet" "public" {
 
 ###############################################################################
 # SUBREDES PRIVADAS
-# Uso: Cargas de trabajo ECS/EC2, agentes Grafana, RDS, Lambda
 ###############################################################################
 
 resource "aws_subnet" "private" {
@@ -149,11 +130,9 @@ resource "aws_subnet" "private" {
 
 ###############################################################################
 # INTERNET GATEWAY
-# Proporciona a las subredes públicas una ruta de salida hacia internet.
 ###############################################################################
 
 resource "aws_internet_gateway" "main" {
-  # La asociación con la VPC se hace aquí, no como recurso separado (práctica recomendada)
   vpc_id = aws_vpc.main.id
 
   tags = {
@@ -162,7 +141,10 @@ resource "aws_internet_gateway" "main" {
 }
 
 ###############################################################################
-# ELASTIC IP — Requerida para el NAT Gateway
+# ELASTIC IP + NAT GATEWAY
+# La EIP requiere que el IGW esté adjunto antes de asignarse (depends_on).
+# El NAT GW se coloca en public-az1; las subredes privadas de ambas AZs
+# enrutan tráfico saliente a través de él.
 ###############################################################################
 
 resource "aws_eip" "nat" {
@@ -172,38 +154,25 @@ resource "aws_eip" "nat" {
     Name = "${var.project_name}-nat-eip"
   }
 
-  # La EIP debe crearse después de que el IGW esté adjunto a la VPC
-  # para evitar errores de dependencia en el plan
   depends_on = [aws_internet_gateway.main]
 }
 
-###############################################################################
-# NAT GATEWAY — Desplegado en subred pública AZ-1
-#
-# Nota de arquitectura: Para alta disponibilidad completa en producción,
-# despliega un NAT Gateway por AZ y crea una tabla de rutas privada por AZ.
-# En este entorno de desarrollo/staging se usa uno solo para optimizar costos.
-###############################################################################
-
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat.id
-
-  # Ubicado en la primera subred pública usando la clave del mapa
-  subnet_id = aws_subnet.public["public-az1"].id
+  subnet_id     = aws_subnet.public["public-az1"].id
 
   tags = {
     Name = "${var.project_name}-nat-gw"
   }
 
-  # Garantiza que el IGW exista antes de crear el NAT Gateway
   depends_on = [aws_internet_gateway.main]
 }
 
 ###############################################################################
-# TABLA DE RUTAS — Pública
-# Dirige todo el tráfico de salida (0.0.0.0/0) hacia el Internet Gateway
+# TABLAS DE RUTAS
 ###############################################################################
 
+# Pública — tráfico 0.0.0.0/0 → Internet Gateway
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -217,21 +186,14 @@ resource "aws_route_table" "public" {
   }
 }
 
-# Asociación: vincula cada subred pública a la tabla de rutas pública
 resource "aws_route_table_association" "public" {
-  # for_each sobre el mapa de subnets para mantener coherencia con los recursos anteriores
   for_each = aws_subnet.public
 
   subnet_id      = each.value.id
   route_table_id = aws_route_table.public.id
 }
 
-###############################################################################
-# TABLA DE RUTAS — Privada
-# El tráfico de salida pasa por el NAT Gateway, no directamente a internet.
-# Esto mantiene las cargas de trabajo privadas sin IPs públicas expuestas.
-###############################################################################
-
+# Privada — tráfico 0.0.0.0/0 → NAT Gateway
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
@@ -245,7 +207,6 @@ resource "aws_route_table" "private" {
   }
 }
 
-# Asociación: vincula cada subred privada a la tabla de rutas privada
 resource "aws_route_table_association" "private" {
   for_each = aws_subnet.private
 

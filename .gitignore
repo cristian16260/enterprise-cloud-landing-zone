@@ -2,13 +2,13 @@
 # Terraform — Enterprise Cloud Landing Zone
 # ===================================================
 
-# Local state files (NEVER commit — contains sensitive infra data)
+# Archivos de estado local (contienen datos sensibles de infraestructura)
 **/.terraform/
 **/terraform.tfstate
 **/terraform.tfstate.backup
 **/.terraform.lock.hcl
 
-# Variable override files (may contain secrets/account IDs)
+# Archivos de variables (pueden contener secretos o IDs de cuenta)
 *.tfvars
 *.tfvars.local
 *.auto.tfvars
@@ -19,19 +19,19 @@ secrets.auto.tfvars
 **/*_override.tf.json
 
 
-# Crash logs
+# Logs de error de Terraform
 crash.log
 crash.*.log
 
-# Terraform plan output files
+# Archivos de plan (pueden exponer configuraciones sensibles)
 *.tfplan
 
-# Terraform CLI config
+# Configuración del CLI de Terraform
 .terraformrc
 terraform.rc
 
 # ===================================================
-# OS & Editor
+# Sistema Operativo y Editores
 # ===================================================
 .DS_Store
 Thumbs.db
@@ -42,7 +42,7 @@ Thumbs.db
 *~
 
 # ===================================================
-# Environment & Secrets — NEVER commit
+# Entorno y Secretos
 # ===================================================
 .env
 .env.*

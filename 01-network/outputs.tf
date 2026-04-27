@@ -1,43 +1,34 @@
 ###############################################################################
 # OUTPUTS — 01-network
-#
-# Estos outputs son el "contrato" que este módulo expone a los módulos futuros.
-# Los módulos 02-compute, 03-observability (Grafana/NOC) y 04-gitops los
-# consumen mediante:
+# Contrato público de este módulo. Consumido por módulos posteriores vía:
 #
 #   data "terraform_remote_state" "network" {
 #     backend = "s3"
-#     config = {
-#       bucket = "enterprise-stack-2026-tfstate"
-#       key    = "network/terraform.tfstate"
-#       region = "us-east-1"
-#     }
+#     config  = { bucket = "enterprise-stack-2026-tfstate", key = "network/terraform.tfstate", region = "us-east-1" }
 #   }
-#
-# Acceso: data.terraform_remote_state.network.outputs.private_subnet_ids
 ###############################################################################
 
 # --- VPC ---
 
 output "vpc_id" {
-  description = "ID de la VPC principal. Usado por todos los módulos de cómputo y observabilidad."
+  description = "ID de la VPC principal."
   value       = aws_vpc.main.id
 }
 
 output "vpc_cidr" {
-  description = "Bloque CIDR de la VPC. Usado en reglas de ingreso de Security Groups."
+  description = "CIDR de la VPC — usado en reglas de Security Groups para tráfico interno."
   value       = aws_vpc.main.cidr_block
 }
 
 # --- Subredes Públicas ---
 
 output "public_subnet_ids" {
-  description = "Lista de IDs de subredes públicas (AZ-1, AZ-2). Usadas por ALBs y NAT Gateway."
+  description = "IDs de subredes públicas como lista — compatible con parámetros de ALB y ASG."
   value       = [for subnet in aws_subnet.public : subnet.id]
 }
 
 output "public_subnets" {
-  description = "Mapa completo de subredes públicas (clave → objeto con id, cidr, az)."
+  description = "Mapa de subredes públicas con id, cidr y az por clave."
   value = {
     for key, subnet in aws_subnet.public : key => {
       id   = subnet.id
@@ -50,12 +41,12 @@ output "public_subnets" {
 # --- Subredes Privadas ---
 
 output "private_subnet_ids" {
-  description = "Lista de IDs de subredes privadas (AZ-1, AZ-2). Usadas por ECS, EC2, agentes Grafana, RDS."
+  description = "IDs de subredes privadas como lista — compatible con parámetros de ECS, RDS y Lambda."
   value       = [for subnet in aws_subnet.private : subnet.id]
 }
 
 output "private_subnets" {
-  description = "Mapa completo de subredes privadas (clave → objeto con id, cidr, az)."
+  description = "Mapa de subredes privadas con id, cidr y az por clave."
   value = {
     for key, subnet in aws_subnet.private : key => {
       id   = subnet.id
@@ -68,16 +59,16 @@ output "private_subnets" {
 # --- Gateways ---
 
 output "internet_gateway_id" {
-  description = "ID del Internet Gateway adjunto a la VPC."
+  description = "ID del Internet Gateway."
   value       = aws_internet_gateway.main.id
 }
 
 output "nat_gateway_id" {
-  description = "ID del NAT Gateway. Usado para verificar conectividad saliente de cargas privadas."
+  description = "ID del NAT Gateway."
   value       = aws_nat_gateway.main.id
 }
 
 output "nat_gateway_public_ip" {
-  description = "IP pública del NAT Gateway. Agrega esta IP a listas blancas de servicios externos (Grafana Cloud, APIs SaaS)."
+  description = "IP pública del NAT — agregar a whitelists de APIs externas y Grafana Cloud."
   value       = aws_eip.nat.public_ip
 }
