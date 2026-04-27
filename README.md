@@ -74,6 +74,20 @@ Ambos scripts recorrerán cada módulo de forma secuencial haciendo `terraform i
 
 ---
 
+## 🧹 FinOps: Limpieza Total (Zero Cost)
+Para evitar cargos en tu cuenta de AWS cuando no uses la plataforma, el código fue modificado intencionalmente (`force_destroy = true`) para permitir una destrucción segura de arriba hacia abajo (desde el Módulo 03 hasta el Módulo 00).
+
+```powershell
+# 1. Destruir cargas de trabajo (Red, Cómputo y Observabilidad)
+.\destroy.ps1
+
+# 2. Borrar los cimientos (Bucket S3 y tabla DynamoDB)
+cd 00-bootstrap
+terraform destroy -auto-approve
+```
+
+---
+
 ## 🛠️ Estándares Aplicados
 - **Variables Validadas:** Bloques `validation` estrictos en las variables de CIDRs y nombres.
 - **For_Each sobre Count:** Uso de mapas con claves estables (`for_each`) para la creación de subredes, evitando fallos de índice frágiles en los estados.

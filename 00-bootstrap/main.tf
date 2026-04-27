@@ -47,11 +47,15 @@ locals {
 
 resource "aws_s3_bucket" "tfstate" {
   bucket        = local.bucket_name
-  force_destroy = false
+  # Cambiado a true para permitir el borrado de Terraform (Nota: igual debes vaciar archivos a mano antes)
+  force_destroy = true
 
-  lifecycle {
-    prevent_destroy = true
-  }
+  # ⚠️ ADVERTENCIA FINOPS: 
+  # En producción, prevent_destroy DEBE ser true para evitar la pérdida accidental del estado.
+  # Se ha comentado para permitir la destrucción completa del entorno y ahorrar costos.
+  # lifecycle {
+  #   prevent_destroy = true
+  # }
 
   tags = {
     Name = local.bucket_name
@@ -106,9 +110,12 @@ resource "aws_dynamodb_table" "tf_lock" {
     enabled = true
   }
 
-  lifecycle {
-    prevent_destroy = true
-  }
+  # ⚠️ ADVERTENCIA FINOPS: 
+  # Comentado para permitir destrucción total.
+  # En un entorno real, descomenta esto para proteger tu tabla de bloqueos de Terraform.
+  # lifecycle {
+  #   prevent_destroy = true
+  # }
 
   tags = {
     Name = local.table_name
