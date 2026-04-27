@@ -2,8 +2,8 @@
 $ErrorActionPreference = "Stop"
 
 # Orden estricto de despliegue
-$Modules = @("00-bootstrap", "01-network", "02-compute")
-# En el futuro agregaras: "03-observability", "04-gitops"
+$Modules = @("00-bootstrap", "01-network", "02-compute", "03-observability")
+# En el futuro agregaras: "04-gitops"
 
 Write-Host "[*] Iniciando despliegue de Enterprise Cloud Landing Zone..." -ForegroundColor Cyan
 

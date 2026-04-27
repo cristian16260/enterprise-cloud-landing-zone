@@ -3,8 +3,8 @@
 set -e
 
 # Orden estricto de despliegue
-MODULES=("00-bootstrap" "01-network" "02-compute")
-# En el futuro agregarás: "03-observability" "04-gitops"
+MODULES=("00-bootstrap" "01-network" "02-compute" "03-observability")
+# En el futuro agregarás: "04-gitops"
 
 echo "🚀 Iniciando despliegue de Enterprise Cloud Landing Zone..."
 
